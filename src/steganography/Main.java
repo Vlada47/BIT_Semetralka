@@ -18,12 +18,36 @@ public class Main {
 	private static final String READ_MODE = "R";
 	private static final String WRITE_MODE = "W";
 	
-	
+	/**
+	 * Value that specifies, what the program should do 
+	 * (hide message in the file or just find and print the message...).
+	 */
 	private static String mode;
+	
+	/**
+	 * Patch to the input file.
+	 */
 	private static String inputFile;
+	
+	/**
+	 * Message, which user wishes to hide.
+	 */
 	private static String message;
+	
+	/**
+	 * Path to the file, which will be created after the message is hidden in its data.
+	 */
 	private static String outputFile;
 	
+	/**
+	 * Main method of the program, it calls {@code loadArgs} method to check input arguments.
+	 * Then it decides, depending on {@code mode} variable, what action will the program do.
+	 * In case of reading the message it calls {@code findMessage} method and prints its result.
+	 * In case of writing the message into file it calls {@code hideMessage} method and its result
+	 * (byte array of the file with hidden message) passes to {@code writeFile} method.
+	 * 
+	 * @param args	input parameters of the program
+	 */
 	public static void main(String[] args) {
 		loadArgs(args);
 		
@@ -39,6 +63,15 @@ public class Main {
 		}
 	}
 	
+	/**
+	 * Method that checks if input arguments are correctly set. It first checks if {@code args} array
+	 * has at least two members and continues with saving the first member into {@code mode} variable
+	 * (it also checks for known values). Then it saves path to input file from the second member.
+	 * If program is used to hide the message into the file, it continues with checking the length of 4
+	 * for {@code args} array and saves the message and path to output file from third and fourth member.
+	 * 
+	 * @param args	input parameters of the program
+	 */
 	private static void loadArgs(String[] args) {
 		boolean ok = true;
 		
@@ -71,6 +104,13 @@ public class Main {
 		}
 	}
 	
+	/**
+	 * Method, which reads the input file and saves its bytes into a byte array 
+	 * that is returned from the method.
+	 * 
+	 * @param fileName	path to the file
+	 * @return	the byte array with bytes from the file
+	 */
 	private static byte[] readFile(String fileName) {
 		File file = new File(fileName);
 		byte[] fileContent = new byte[(int)file.length()];
@@ -99,6 +139,12 @@ public class Main {
 		return fileContent;
 	}
 	
+	/**
+	 * Method, which writes passed byte array into a file specified by passed path.
+	 * 
+	 * @param fileContent	byte array that will be saved into the file
+	 * @param fileName	path of the output file
+	 */
 	private static void writeFile(byte[] fileContent, String fileName) {
 		File file = new File(fileName);
 		try{
@@ -114,6 +160,17 @@ public class Main {
 		}
 	}
 	
+	/**
+	 * Method, which goal is to hide the message into the byte array - one bit of the message per one byte from the array.
+	 * It first calls {@code getVideoStreamPos} method that tries to find the start of the video stream from the file ('movi' list)
+	 * and return the number of relevant byte. The position is then moved by 4 bytes forward, where should be first RIFF chunk
+	 * with the stream data. Method then loops through individual chunks until there are no more chunks or the message was completely hidden
+	 * in the data. The resulting byte array is then returned.
+	 *   
+	 * @param message	message to be hidden in the data
+	 * @param fileContent	byte array from the input file
+	 * @return	modified byte array with hidden message
+	 */
 	private static byte[] hideMessage(String message, byte[] fileContent) {
 		byte[] resultContent = Arrays.copyOf(fileContent, fileContent.length);
 		int currentPos = 0;
@@ -162,6 +219,17 @@ public class Main {
 		return message;
 	}
 	
+	/**
+	 * Method, which cycles through the bytes of the passed array in effort to find 'movi' sequence,
+	 * which means beginning of the video stream from AVI file. Once the sequence is found, the index
+	 * of the first byte of the sequence is returned.  
+	 * @param content	byte array with file content
+	 * @return	position of the first byte of the 'movi' sequence.
+	 * @throws ArrayIndexOutOfBoundsException	in case that 'movi' sequence won't be found,
+	 * 											the while loop will eventually increase the index 
+	 * 											out of bounds of the byte array, which also means
+	 * 											the input file is probably not AVI
+	 */
 	private static int getVideoStreamPos(byte[] content) throws ArrayIndexOutOfBoundsException {
 		int bytePos = -1;
 		String videoMoviListID = "movi";
