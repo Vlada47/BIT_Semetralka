@@ -60,6 +60,7 @@ public class Main {
 		case WRITE_MODE:
 			fileContent = hideMessage(message, fileContent);
 			writeFile(fileContent, outputFile);
+			System.out.println("Message '"+message+"' has been hidden into '"+outputFile+"' file.");
 		}
 	}
 	
@@ -76,31 +77,35 @@ public class Main {
 		boolean ok = true;
 		
 		if(args.length >= 2) {
-			if(args[0].toUpperCase() == READ_MODE || args[0].toUpperCase() == WRITE_MODE) {
+			if(args[0].toUpperCase().equals(READ_MODE)  || args[0].toUpperCase().equals(WRITE_MODE)) {
 				mode = args[0].toUpperCase();
 			}
 			else {
 				ok = false;
+				System.out.println("Unknown program mode.");
 			}
 			
 			inputFile = args[1];
 			
-			if(mode == WRITE_MODE) {
+			if(mode.equals(WRITE_MODE)) {
 				if(args.length == 4) {
 					message = args[2];
 					outputFile = args[3];
 				}
 				else {
 					ok = false;
+					System.out.println("You have to pass all 4 parameters for writing message into file.");
 				}
 			}
 		}
 		else {
 			ok = false;
+			System.out.println("You have to pass at least 2 parameters.");
 		}
 		
 		if(!ok) {
 			System.out.println(ARGS_ERROR);
+			System.exit(1);
 		}
 	}
 	
@@ -131,9 +136,11 @@ public class Main {
 		}
 		catch(FileNotFoundException e) {
 			e.printStackTrace();
+			System.exit(1);
 		}
 		catch(IOException e) {
 			e.printStackTrace();
+			System.exit(1);
 		}
 		
 		return fileContent;
@@ -154,9 +161,11 @@ public class Main {
 		}
 		catch(FileNotFoundException e) {
 			e.printStackTrace();
+			System.exit(1);
 		}
 		catch(IOException e) {
 			e.printStackTrace();
+			System.exit(1);
 		}
 	}
 	
@@ -269,11 +278,24 @@ public class Main {
 	private static String saveMessageIntoChunk(String message, byte[] content, int pos, int chunkSize) {
 		String remainingMessage = null;
 		int messageIndex = 0;
+		int charIndex = 0;
+		int currPos = pos;
+		int overhead = chunkSize % 8;
 		
-		for(int i = 0; i < chunkSize; i++) {
+		for(int i = 0; i < (chunkSize - overhead); i++) {
 			if(messageIndex < message.length()) {
 				char messageChar = message.charAt(messageIndex);
-				//change the bit in the content if need be and move to another character when all bits have been used
+				int bit_ch = (messageChar >> charIndex) & 1;
+				content[currPos] = (byte) ((content[currPos] & (byte)0xFE) | (byte)bit_ch);
+				currPos++;
+				
+				if(charIndex > 7) {
+					charIndex = 0;
+					messageIndex++;
+				}
+				else {
+					charIndex++;
+				}
 			}
 			else {
 				break;
@@ -289,13 +311,27 @@ public class Main {
 	
 	private static String getMessageFromChunk(String message, byte[] content, int pos, int chunkSize) {
 		String resultMessage = message;
-		int currentPos = pos;
+		int currPos = pos;
+		int overhead = chunkSize % 8;
+		int charIndex = 0;
+		char messageChar = 0;
 		
-		for(int i = 0; i < chunkSize; i++) {
-			//add individual bits from chunk's bytes and when the whole character is composed add it to the message
-			currentPos++;
+		for(int i = 0; i < (chunkSize - overhead); i++) {
+			int bit_byte = (content[currPos] & (byte)0x01) << charIndex;
+			messageChar = (char) (messageChar |  (char)bit_byte);
+			
+			currPos++;
+			
+			if(charIndex > 7) {
+				resultMessage += messageChar;
+				charIndex = 0;
+			}
+			else {
+				charIndex++;
+			}
 		}
 		
-		return message;
+		System.out.println(resultMessage);
+		return resultMessage;
 	}
 }
