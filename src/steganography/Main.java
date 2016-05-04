@@ -8,7 +8,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 public class Main {
 	
@@ -17,6 +16,8 @@ public class Main {
 											+ "2) Hide message: \"AVISteganography.jar W <input_file> <message> <output_file>\"\n";
 	private static final String READ_MODE = "R";
 	private static final String WRITE_MODE = "W";
+	private static final String VIDEO_START_SEQUENCE = "movi";
+	private static final String END_SEQUENCE = "BITx";
 	
 	/**
 	 * Value that specifies, what the program should do 
@@ -117,6 +118,7 @@ public class Main {
 	 * @return	the byte array with bytes from the file
 	 */
 	private static byte[] readFile(String fileName) {
+		System.out.println("Reading from file: "+fileName+".");
 		File file = new File(fileName);
 		byte[] fileContent = new byte[(int)file.length()];
 
@@ -153,6 +155,7 @@ public class Main {
 	 * @param fileName	path of the output file
 	 */
 	private static void writeFile(byte[] fileContent, String fileName) {
+		System.out.println("Writing to file: "+fileName+".");
 		File file = new File(fileName);
 		try{
 			BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(file));
@@ -181,7 +184,6 @@ public class Main {
 	 * @return	modified byte array with hidden message
 	 */
 	private static byte[] hideMessage(String message, byte[] fileContent) {
-		byte[] resultContent = Arrays.copyOf(fileContent, fileContent.length);
 		int currentPos = 0;
 		
 		try {
@@ -189,11 +191,11 @@ public class Main {
 			System.out.println("Video stream (movi list) found at "+currentPos+". byte.");
 			currentPos += 4; //moving to the first chunk
 			
-			String messageToHide = message;
+			String messageToHide = message + END_SEQUENCE;
 			int chunkSize;
 			while((chunkSize = getNextChunkSize(fileContent, currentPos)) > 0 && messageToHide != null) {
 				currentPos += 8; //moving to chunk's data
-				messageToHide = saveMessageIntoChunk(messageToHide, resultContent, currentPos, chunkSize);
+				messageToHide = saveMessageIntoChunk(messageToHide, fileContent, currentPos, chunkSize);
 				currentPos += chunkSize;
 			}
 		}
@@ -201,7 +203,7 @@ public class Main {
 			System.out.println("Video stream (movi list) has not been found. Make sure the input file is an actual AVI.");
 		}
 		
-		return resultContent;
+		return fileContent;
 	}
 	
 	private static String findMessage(byte[] fileContent) {
@@ -218,6 +220,7 @@ public class Main {
 				currentPos += 8; //moving to chunk's data
 				message += getMessageFromChunk(message, fileContent, currentPos, chunkSize);
 				currentPos += chunkSize;
+				if(message.substring(message.length() - END_SEQUENCE.length()).equals(END_SEQUENCE)) break;
 			}
 			
 		}
@@ -225,7 +228,7 @@ public class Main {
 			System.out.println("Video stream (movi list) has not been found. Make sure the input file is an actual AVI.");
 		}
 		
-		return message;
+		return message.substring(0, message.length() - END_SEQUENCE.length());
 	}
 	
 	/**
@@ -241,10 +244,9 @@ public class Main {
 	 */
 	private static int getVideoStreamPos(byte[] content) throws ArrayIndexOutOfBoundsException {
 		int bytePos = -1;
-		String videoMoviListID = "movi";
 		String valueFound = "";
 		
-		while(!valueFound.equals(videoMoviListID)) {
+		while(!valueFound.equals(VIDEO_START_SEQUENCE)) {
 			bytePos++;
 			valueFound = "";
 			for(int i = bytePos; i < bytePos+4; i++) {
@@ -289,7 +291,7 @@ public class Main {
 				content[currPos] = (byte) ((content[currPos] & (byte)0xFE) | (byte)bit_ch);
 				currPos++;
 				
-				if(charIndex > 7) {
+				if(charIndex >= 7) {
 					charIndex = 0;
 					messageIndex++;
 				}
@@ -322,16 +324,20 @@ public class Main {
 			
 			currPos++;
 			
-			if(charIndex > 7) {
+			if(charIndex >= 7) {
 				resultMessage += messageChar;
+				messageChar = 0;
 				charIndex = 0;
+				
+				if(resultMessage.length() >= 4) {
+					if(resultMessage.substring(resultMessage.length() - END_SEQUENCE.length()).equals(END_SEQUENCE)) break;
+				}
 			}
 			else {
 				charIndex++;
 			}
 		}
 		
-		System.out.println(resultMessage);
 		return resultMessage;
 	}
 }
