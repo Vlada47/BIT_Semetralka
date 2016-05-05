@@ -9,6 +9,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+/**
+ * This is a simple program employing LSB style steganography for AVI files. It takes given message, extracts the bytes from given input file
+ * and hides individual bits into first video stream found, then writes the new file on specified location. You can then read the hidden message
+ * by passing just the file with the message.
+ * @author Vladimír Láznièka (laznickav@hotmail.cz)
+ *
+ */
 public class Main {
 	
 	private static final String ARGS_ERROR = "Program usage: \n"
@@ -149,7 +156,7 @@ public class Main {
 	}
 	
 	/**
-	 * Method, which writes passed byte array into a file specified by passed path.
+	 * Method, which writes passed byte array into a file specified by given path.
 	 * 
 	 * @param fileContent	byte array that will be saved into the file
 	 * @param fileName	path of the output file
@@ -201,11 +208,19 @@ public class Main {
 		}
 		catch(ArrayIndexOutOfBoundsException e) {
 			System.out.println("Video stream (movi list) has not been found. Make sure the input file is an actual AVI.");
+			System.exit(1);
 		}
 		
 		return fileContent;
 	}
 	
+	/**
+	 * Method, which searches the file content for the hidden message. It first finds the start of first video stream with method {@code getVideoStreamPos}.
+	 * If it is found, this method loops through its individual chunks and with method {@code getMessageFromChunk} extracting parts of the message into
+	 * a String that is returned from this method. Message is finished, when specified end sequence is found.  
+	 * @param fileContent	byte arrays with the file content
+	 * @return	String with the hidden message
+	 */
 	private static String findMessage(byte[] fileContent) {
 		String message = "";
 		int currentPos = 0;
@@ -226,6 +241,7 @@ public class Main {
 		}
 		catch(ArrayIndexOutOfBoundsException e) {
 			System.out.println("Video stream (movi list) has not been found. Make sure the input file is an actual AVI.");
+			System.exit(1);
 		}
 		
 		return message.substring(0, message.length() - END_SEQUENCE.length());
@@ -257,6 +273,13 @@ public class Main {
 		return bytePos;
 	}
 	
+	/**
+	 * Method for finding the size of one chunk in bytes. It first checks for chunk of video files (denoted by 'dc' or 'db' sequence at the start of the chunk).
+	 * If the check passes the 4 bytes containing the size value are extracted and this value is processed into an Integer, this Integer is then returned.
+	 * @param content	byte array with file content
+	 * @param chunkPos	the index of a byte, from which the specified chunk starts
+	 * @return	Integer with a size of the chunk
+	 */
 	private static int getNextChunkSize(byte[] content, int chunkPos) {
 		int chunkSize = 0;
 		
@@ -277,6 +300,17 @@ public class Main {
 		return chunkSize;
 	}
 	
+	/**
+	 * Method, which hides individual characters of message into a content of a chunk specified by its position and size.
+	 * It loops through the bytes of the chunk (the limit is padded to 8-byte parts) and if there's still some message to be hidden,
+	 * if extract its next character and by LSB method hides its bits into chunk's bytes. If the message bits count exceeds the size of the chunk,
+	 * the rest of the message is returned from the method for the next chunk.
+	 * @param message	message or part of the message to be hidden into chunk
+	 * @param content	byte arrays with file content
+	 * @param pos	starting position of the chunk's content
+	 * @param chunkSize	size of the chunk in bytes
+	 * @return	String with the rest of the message that couldn't be hidden (it is null, if the entire message was hidden)
+	 */
 	private static String saveMessageIntoChunk(String message, byte[] content, int pos, int chunkSize) {
 		String remainingMessage = null;
 		int messageIndex = 0;
@@ -311,6 +345,16 @@ public class Main {
 		return remainingMessage;
 	}
 	
+	/**
+	 * Method, which picks individual bits of the message from chunk's bytes (LSB method of steganography).
+	 * It loops through individual bytes of the chunk and extracts the bits, which are then combined into individual characters of the message.
+	 * When message has been completed (or the loop reached the end of the chunk), the resulting String is returned from the method.
+	 * @param message	part of the message from earlier chunk
+	 * @param content	byte arrays with file content
+	 * @param pos	starting position of the chunk's content
+	 * @param chunkSize	size of the chunk in bytes
+	 * @return String with the hidden message or its part
+	 */
 	private static String getMessageFromChunk(String message, byte[] content, int pos, int chunkSize) {
 		String resultMessage = message;
 		int currPos = pos;
