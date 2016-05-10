@@ -127,6 +127,12 @@ public class Main {
 	private static byte[] readFile(String fileName) {
 		System.out.println("Reading from file: "+fileName+".");
 		File file = new File(fileName);
+		
+		if(file.length() > 0x7FFFFFFF) {
+			System.out.println("File is too large!");
+			System.exit(1);
+		}
+		
 		byte[] fileContent = new byte[(int)file.length()];
 
 		try{
@@ -205,9 +211,14 @@ public class Main {
 				messageToHide = saveMessageIntoChunk(messageToHide, fileContent, currentPos, chunkSize);
 				currentPos += chunkSize;
 			}
+			
+			if(messageToHide != null) {
+				System.out.println("Message couldn't be hidden into file.");
+				System.exit(1);
+			}
 		}
 		catch(ArrayIndexOutOfBoundsException e) {
-			System.out.println("Video stream (movi list) has not been found. Make sure the input file is an actual AVI.");
+			System.out.println("Needed structures were not found in the file.");
 			System.exit(1);
 		}
 		
@@ -227,23 +238,24 @@ public class Main {
 		
 		try{
 			currentPos = getVideoStreamPos(fileContent);
-			System.out.println("Video stream (movi list) found at "+currentPos+". byte.");
+			System.out.println("Multimedia stream (movi list) found at "+currentPos+". byte.");
 			currentPos += 4; //moving to the first chunk
 			
 			int chunkSize;
 			while((chunkSize = getNextChunkSize(fileContent, currentPos)) > 0) {
 				currentPos += 8; //moving to chunk's data
-				message += getMessageFromChunk(message, fileContent, currentPos, chunkSize);
+				message = getMessageFromChunk(message, fileContent, currentPos, chunkSize);
 				currentPos += chunkSize;
 				if(message.substring(message.length() - END_SEQUENCE.length()).equals(END_SEQUENCE)) break;
 			}
 			
 		}
 		catch(ArrayIndexOutOfBoundsException e) {
-			System.out.println("Video stream (movi list) has not been found. Make sure the input file is an actual AVI.");
+			System.out.println("Needed structures were not found in the file.");
+			e.printStackTrace();
 			System.exit(1);
 		}
-		
+	
 		return message.substring(0, message.length() - END_SEQUENCE.length());
 	}
 	
@@ -274,8 +286,8 @@ public class Main {
 	}
 	
 	/**
-	 * Method for finding the size of one chunk in bytes. It first checks for chunk of video files (denoted by 'dc' or 'db' sequence at the start of the chunk).
-	 * If the check passes the 4 bytes containing the size value are extracted and this value is processed into an Integer, this Integer is then returned.
+	 * Method for finding the size of one chunk in bytes.
+	 * The 4 bytes containing the size value are extracted and this value is processed into an Integer, this Integer is then returned.
 	 * @param content	byte array with file content
 	 * @param chunkPos	the index of a byte, from which the specified chunk starts
 	 * @return	Integer with a size of the chunk
@@ -283,7 +295,7 @@ public class Main {
 	private static int getNextChunkSize(byte[] content, int chunkPos) {
 		int chunkSize = 0;
 		
-		if((char)content[chunkPos+2] == 'd' && ((char)content[chunkPos+3] == 'b' || (char)content[chunkPos+3] == 'c')) {
+		//if((char)content[chunkPos+2] == 'd' && ((char)content[chunkPos+3] == 'b' || (char)content[chunkPos+3] == 'c')) {
 			int currPos = chunkPos + 4;
 			byte[] sizeBytes = new byte[4];
 			
@@ -294,7 +306,7 @@ public class Main {
 			
 			ByteBuffer sizeBytesWrapper = ByteBuffer.wrap(sizeBytes);
 			chunkSize = sizeBytesWrapper.getInt();
-		}
+		//}
 		
 		
 		return chunkSize;
